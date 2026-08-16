@@ -1,0 +1,94 @@
+name: Build unsigned IPA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-ipa:
+    runs-on: xcode-27
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify Xcode 27 toolchain
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          swiftc --version
+          SDK_VERSION="$(xcrun --sdk iphoneos --show-sdk-version)"
+          echo "iPhoneOS SDK ${SDK_VERSION}"
+          case "${SDK_VERSION}" in
+            27.*) ;;
+            *)
+              echo "错误：Liquid Glass 构建要求 iOS 27 SDK，当前为 ${SDK_VERSION}" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Validate Liquid Glass integration
+        run: bash scripts/validate_liquid_glass.sh
+
+      - name: Install XcodeGen
+        # 工程是生成物，CI 必须先生成 GPSAntBMS.xcodeproj。
+        # 若 brew 安装失败，本步骤直接失败，不会静默跳过。
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: bash scripts/generate_project.sh
+
+      - name: Run SwiftPM domain tests
+        # 域层（Sources/Domain + Tests/UnitTests）纯 Swift 测试，
+        # 与 Xcode 工程共享同一批源码；失败即阻断后续步骤。
+        run: swift test
+
+      - name: Run simulator tests
+        # 模拟器单元 + UI 测试（scripts/test.sh 自动选择可用 iPhone 模拟器）。
+        # 任何测试失败都会阻断打包与上传，不静默跳过。
+        run: bash scripts/test.sh
+
+      - name: Package unsigned device IPA
+        # 未签名 Release 设备构建 + IPA 打包（dist/GPSAntBMS-unsigned.ipa）。
+        # 不包含任何签名机密（CODE_SIGNING_ALLOWED=NO）；
+        # 未签名 IPA 仅供自签/侧载，不可直接安装或上架。
+        run: bash scripts/package_unsigned_ipa.sh
+
+      - name: Validate unsigned IPA structure
+        # 产物完整性门禁：IPA 必须包含 Payload/GPSAntBMS.app/ 目录与
+        # 可执行文件 Payload/GPSAntBMS.app/GPSAntBMS，且不得包含
+        # embedded.mobileprovision（未签名 IPA 不应携带描述文件）。
+        # 任何一项校验失败都会以非零退出码阻断上传。
+        run: |
+          set -euo pipefail
+          IPA="dist/GPSAntBMS-unsigned.ipa"
+          test -f "${IPA}" || { echo "错误：IPA 不存在：${IPA}" >&2; exit 1; }
+          IPA_ENTRIES="$(unzip -Z1 "${IPA}")"
+          grep -q '^Payload/GPSAntBMS.app/' <<< "${IPA_ENTRIES}" || { echo "错误：IPA 缺少 Payload/GPSAntBMS.app/" >&2; exit 1; }
+          grep -q '^Payload/GPSAntBMS.app/GPSAntBMS$' <<< "${IPA_ENTRIES}" || { echo "错误：IPA 缺少可执行文件 Payload/GPSAntBMS.app/GPSAntBMS" >&2; exit 1; }
+          if grep -q 'embedded.mobileprovision' <<< "${IPA_ENTRIES}"; then
+            echo "错误：未签名 IPA 不应包含 embedded.mobileprovision" >&2
+            exit 1
+          fi
+          echo "IPA 结构校验通过：${IPA}"
+
+      - name: Upload unsigned IPA
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: GPSAntBMS-unsigned-ipa
+          path: dist/GPSAntBMS-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7

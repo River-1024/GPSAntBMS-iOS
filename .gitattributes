@@ -1,0 +1,8 @@
+# 脚本统一使用 LF 换行，避免 macOS/Linux 上出现 CRLF 执行问题
+*.sh text eol=lf
+*.ps1 text eol=crlf
+*.swift text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.plist text eol=lf
+*.md text eol=lf

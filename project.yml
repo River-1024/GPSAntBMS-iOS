@@ -1,0 +1,133 @@
+# ============================================================
+# GPS ANT BMS - 确定性工程定义（XcodeGen）
+#
+# 用法（macOS）：
+#   brew install xcodegen
+#   xcodegen generate        # 或 ./scripts/generate_project.sh
+#
+# 注意：
+# - GPSAntBMS.xcodeproj 是生成物，不提交（见 .gitignore）。
+# - 后台保活仅在用户开启且正在记录行程时启用定位、BLE 与静音音频会话。
+# - 仅使用 Apple 原生框架，无第三方运行时依赖。
+# - 不做 App Store/TestFlight 流程，不包含签名材料。
+# ============================================================
+
+name: GPSAntBMS
+
+options:
+  bundleIdPrefix: com.zjsf
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    # 无签名策略：不设置 CODE_SIGN_STYLE / DEVELOPMENT_TEAM / 签名证书，
+    # CI 以 CODE_SIGNING_ALLOWED=NO 构建未签名 IPA，避免误导为可自动签名。
+
+targets:
+  # ---------- App 目标 ----------
+  GPSAntBMS:
+    type: application
+    platform: iOS
+    # 功能目标：显式编译迁移源码（App/Domain/Services/Features/DesignSystem），
+    # 继续排除 Sources/Bootstrap（避免两个 @main 冲突；Bootstrap 仅供里程碑隔离）。
+    sources:
+      - path: Sources/App
+      - path: Sources/Domain
+      - path: Sources/Services
+      - path: Sources/Features
+      - path: Sources/DesignSystem
+    info:
+      path: Resources/Info.plist
+      properties:
+        CFBundleDisplayName: GPS ANT BMS
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        LSRequiresIPhoneOS: true
+        # 后台保活需要定位、BLE central 与音频后台模式；不配置签名与 AppIcon 要求。
+        NSBluetoothAlwaysUsageDescription: 需要蓝牙权限以连接 ANT BMS 保护板并读取电池状态。
+        NSLocationWhenInUseUsageDescription: 需要定位权限以显示 GPS 速度并记录行程。
+        NSLocationAlwaysAndWhenInUseUsageDescription: 开启后台保活并记录行程时，需要持续定位以维持行程和 BMS 连接。
+        NSCameraUsageDescription: 需要摄像头权限，以便在查看仪表盘时录制前方道路画面。
+        NSMicrophoneUsageDescription: 需要麦克风权限，以便行车记录片段同时包含现场声音。
+        NSPhotoLibraryAddUsageDescription: 仅在您主动导出时，需要将选中的录像写入系统照片。
+        UIBackgroundModes:
+          - location
+          - bluetooth-central
+          - audio
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.zjsf.gpsantbms
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        GENERATE_INFOPLIST_FILE: NO
+    resources:
+      - path: Resources/Assets.xcassets
+      - path: Resources/PrivacyInfo.xcprivacy
+
+  # ---------- 单元测试目标 ----------
+  GPSAntBMSTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/UnitTests
+    dependencies:
+      - target: GPSAntBMS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.zjsf.gpsantbms.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/GPSAntBMS.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/GPSAntBMS"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+
+  # ---------- UI 测试目标 ----------
+  GPSAntBMSUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/UITests
+    dependencies:
+      - target: GPSAntBMS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.zjsf.gpsantbms.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: GPSAntBMS
+
+# ---------- 共享 Scheme（CI 使用该名称） ----------
+schemes:
+  GPSAntBMS:
+    build:
+      targets:
+        GPSAntBMS: all
+        GPSAntBMSTests: [test]
+        GPSAntBMSUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - GPSAntBMSTests
+        - GPSAntBMSUITests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

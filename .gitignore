@@ -1,0 +1,48 @@
+# ============================================================
+# GPS ANT BMS (iOS) - 独立仓库 .gitignore
+# ============================================================
+
+# XcodeGen 生成的工程（非源码，构建前重新生成）
+# 工程定义唯一来源是 project.yml，生成物一律不提交。
+GPSAntBMS.xcodeproj/
+GPSAntBMS.xcworkspace/
+
+# Xcode 用户状态与构建产物
+DerivedData/
+build/
+dist/
+*.ipa
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# macOS
+.DS_Store
+
+# 签名与密钥（严禁提交）
+*.p12
+*.mobileprovision
+*.cer
+*.key
+*.provisionprofile
+.env
+.env.*
+!.env.example
+secrets.properties
+
+# 编辑器
+.idea/
+.vscode/
+
+# 诊断输出
+*.log
+
+# opencode 本地会话延续记录（工具状态，不入库）
+.omo/
+
+# Codex / OMX 本地索引与运行状态（工具状态，不入库）
+.codegraph/
+.omx/
+
+# Playwright MCP 本地浏览器采集物（可能包含网页状态，不入库）
+.playwright-mcp/

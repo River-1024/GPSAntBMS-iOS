@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 当前不申请额外 Entitlement：
+	     - 无推送（aps-environment）
+	     - 后台模式由 Info.plist 的 UIBackgroundModes 声明（location / bluetooth-central / audio）
+	     - 无 App Group / 网络扩展 / iCloud
+	     后续如需添加 Entitlement，必须明确其后台和隐私边界。 -->
+</dict>
+</plist>
