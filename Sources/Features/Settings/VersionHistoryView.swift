@@ -13,10 +13,13 @@ struct VersionHistoryView: View {
             case .success(let history):
                 List(history.releases) { release in
                     DisclosureGroup {
-                        ForEach(release.changes, id: \.self) { change in
+                        ForEach(Array(release.changes.enumerated()), id: \.offset) { index, change in
                             Text(change)
                                 .font(.body)
                                 .padding(.vertical, 2)
+                                .accessibilityIdentifier(
+                                    "version-history.change.\(release.version).\(index)"
+                                )
                         }
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
@@ -27,6 +30,7 @@ struct VersionHistoryView: View {
                                 .foregroundStyle(Theme.Colors.textSecondary)
                         }
                     }
+                    .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("version-history.row.\(release.version)")
                     .accessibilityLabel(
                         "版本 \(release.version)，构建 \(release.build)，发布日期 \(release.releaseDate)"

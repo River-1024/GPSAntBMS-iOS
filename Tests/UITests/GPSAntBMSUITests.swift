@@ -76,8 +76,14 @@ final class GPSAntBMSUITests: XCTestCase {
         let firstRelease = app.descendants(matching: .any)["version-history.row.0.1.0"].firstMatch
         XCTAssertTrue(firstRelease.waitForExistence(timeout: 5))
         firstRelease.tap()
-        XCTAssertTrue(app.staticTexts["录像库支持长按进入多选管理，以及锁定保护、批量导出和分享。"]
-            .waitForExistence(timeout: 5))
+        let recordingLibraryChange = app.descendants(matching: .any)[
+            "version-history.change.0.1.0.1"
+        ].firstMatch
+        XCTAssertTrue(recordingLibraryChange.waitForExistence(timeout: 5))
+        XCTAssertEqual(
+            recordingLibraryChange.label,
+            "录像库支持长按进入多选管理，以及锁定保护、批量导出和分享。"
+        )
     }
 
     func testRecordingLibraryLongPressEntersSelectionAndProtectsLockedSegment() throws {
