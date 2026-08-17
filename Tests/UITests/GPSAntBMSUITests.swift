@@ -69,7 +69,9 @@ final class GPSAntBMSUITests: XCTestCase {
         XCTAssertTrue(scrollToElement(versionHistoryEntry, in: app))
         versionHistoryEntry.tap()
 
-        let firstRelease = app.staticTexts["版本 0.1.0"]
+        let firstRelease = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", "版本 0.1.0"))
+            .firstMatch
         XCTAssertTrue(firstRelease.waitForExistence(timeout: 5))
         firstRelease.tap()
         XCTAssertTrue(app.staticTexts["录像库支持长按进入多选管理，以及锁定保护、批量导出和分享。"]
@@ -99,7 +101,9 @@ final class GPSAntBMSUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["已选 0 段"].waitForExistence(timeout: 5))
         app.buttons["dashcam.library.select-all"].tap()
         XCTAssertTrue(app.staticTexts["已选 2 段"].waitForExistence(timeout: 5))
-        app.buttons["dashcam.library.delete"].tap()
+        let deleteButton = app.buttons["删除所选录像"]
+        XCTAssertTrue(deleteButton.waitForExistence(timeout: 5))
+        deleteButton.tap()
         XCTAssertTrue(app.buttons["删除 1 段录像"].waitForExistence(timeout: 5))
         app.buttons["删除 1 段录像"].tap()
         if app.alerts["行车记录"].waitForExistence(timeout: 2) {
