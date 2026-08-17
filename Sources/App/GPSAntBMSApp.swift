@@ -23,7 +23,9 @@ struct GPSAntBMSApp: App {
     init() {
         let bluetoothService = BmsBluetoothService()
         let locationService = LocationService()
-        let backgroundKeepAlive = BackgroundKeepAliveService()
+        let audioSessionCoordinator = ApplicationAudioSessionCoordinator()
+        let backgroundKeepAlive = BackgroundKeepAliveService(
+            audioSessionCoordinator: audioSessionCoordinator)
         let rangePool = RangePoolController(
             locationProvider: locationService,
             bmsProvider: bluetoothService)
@@ -36,7 +38,9 @@ struct GPSAntBMSApp: App {
         let logController = SoftwareLogController(
             bluetoothService: bluetoothService,
             tripSession: tripSession)
+        let dashcamCapture = DashcamMediaCapture(audioSessionCoordinator: audioSessionCoordinator)
         let dashcamController = DashcamRecordingController(
+            capture: dashcamCapture,
             store: Self.makeDashcamStore(),
             capacityBytes: { [weak tripSession] in
                 (tripSession?.settings.recordingCapacityLimit ?? .defaultValue).byteCount

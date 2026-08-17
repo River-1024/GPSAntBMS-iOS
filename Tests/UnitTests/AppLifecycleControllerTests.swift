@@ -113,6 +113,41 @@ final class AppLifecycleControllerTests: XCTestCase {
         XCTAssertFalse(controller.isForegroundActive)
     }
 
+    func testInactiveKeepsDashcamRecording() {
+        let log = CallLog()
+        let controller = AppLifecycleController(
+            locationService: MockForegroundService(label: "location", log: log),
+            bluetoothService: MockForegroundService(label: "bluetooth", log: log),
+            tripSession: MockForegroundService(label: "trip", log: log),
+            rangePool: MockForegroundService(label: "rangePool", log: log),
+            dashcamDidBecomeActive: { log.record("dashcam:active") },
+            dashcamWillResignActive: { log.record("dashcam:inactive") })
+
+        controller.scenePhaseDidChange(.active)
+        controller.scenePhaseDidChange(.inactive)
+
+        XCTAssertEqual(log.calls.filter { $0.hasPrefix("dashcam:") }, ["dashcam:active"])
+    }
+
+    func testInactiveThenBackgroundStopsDashcamExactlyOnce() {
+        let log = CallLog()
+        let controller = AppLifecycleController(
+            locationService: MockForegroundService(label: "location", log: log),
+            bluetoothService: MockForegroundService(label: "bluetooth", log: log),
+            tripSession: MockForegroundService(label: "trip", log: log),
+            rangePool: MockForegroundService(label: "rangePool", log: log),
+            dashcamDidBecomeActive: { log.record("dashcam:active") },
+            dashcamWillResignActive: { log.record("dashcam:inactive") })
+
+        controller.scenePhaseDidChange(.active)
+        controller.scenePhaseDidChange(.inactive)
+        controller.scenePhaseDidChange(.background)
+
+        XCTAssertEqual(
+            log.calls.filter { $0.hasPrefix("dashcam:") },
+            ["dashcam:active", "dashcam:inactive"])
+    }
+
     /// `.background` 停止四个前台服务。
     func testBackgroundStopsAllForegroundServices() {
         let (controller, location, bluetooth, trip, rangePool) = makeController()
