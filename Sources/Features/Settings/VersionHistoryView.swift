@@ -26,8 +26,8 @@ struct VersionHistoryView: View {
                                 .font(.caption)
                                 .foregroundStyle(Theme.Colors.textSecondary)
                         }
-                        .accessibilityIdentifier("version-history.row.\(release.version)")
                     }
+                    .accessibilityIdentifier("version-history.row.\(release.version)")
                     .accessibilityLabel(
                         "版本 \(release.version)，构建 \(release.build)，发布日期 \(release.releaseDate)"
                     )

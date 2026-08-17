@@ -69,9 +69,11 @@ final class GPSAntBMSUITests: XCTestCase {
         XCTAssertTrue(scrollToElement(versionHistoryEntry, in: app))
         versionHistoryEntry.tap()
 
-        let firstRelease = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label CONTAINS %@", "版本 0.1.0"))
-            .firstMatch
+        XCTAssertTrue(app.navigationBars["版本更新记录"].waitForExistence(timeout: 5))
+        let loadError = app.descendants(matching: .any)["version-history.error"].firstMatch
+        XCTAssertFalse(loadError.waitForExistence(timeout: 1), "版本记录资源或当前版本校验失败")
+
+        let firstRelease = app.descendants(matching: .any)["version-history.row.0.1.0"].firstMatch
         XCTAssertTrue(firstRelease.waitForExistence(timeout: 5))
         firstRelease.tap()
         XCTAssertTrue(app.staticTexts["录像库支持长按进入多选管理，以及锁定保护、批量导出和分享。"]
