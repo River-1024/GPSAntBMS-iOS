@@ -14,6 +14,10 @@ final class AppVersionHistoryTests: XCTestCase {
         XCTAssertThrowsError(try history(replacing: "2025-01-01", with: "2025/01/01"))
     }
 
+    func testRejectsNonexistentDate() {
+        XCTAssertThrowsError(try history(replacing: "2025-01-01", with: "2025-02-30"))
+    }
+
     func testRejectsDuplicateVersion() {
         XCTAssertThrowsError(try history(replacing: "1.1.0", with: "1.2.0"))
     }

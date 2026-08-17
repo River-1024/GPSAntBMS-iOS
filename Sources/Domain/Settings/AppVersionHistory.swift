@@ -60,7 +60,16 @@ struct AppVersionRelease: Codable, Equatable, Identifiable {
     var id: String { "\(version)-\(build)" }
 
     var parsedReleaseDate: Date? {
-        Self.dateFormatter.date(from: releaseDate)
+        guard releaseDate.range(
+            of: #"^\d{4}-\d{2}-\d{2}$"#,
+            options: .regularExpression
+        ) != nil,
+        let date = Self.dateFormatter.date(from: releaseDate),
+        Self.dateFormatter.string(from: date) == releaseDate
+        else {
+            return nil
+        }
+        return date
     }
 
     private static let dateFormatter: DateFormatter = {
@@ -69,6 +78,7 @@ struct AppVersionRelease: Codable, Equatable, Identifiable {
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = "yyyy-MM-dd"
+        formatter.isLenient = false
         return formatter
     }()
 }
