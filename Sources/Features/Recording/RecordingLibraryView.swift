@@ -139,7 +139,7 @@ struct RecordingLibraryView: View {
                 }
             }
         }
-        .environment(\.editMode, editModeBinding)
+        .environment(\.editMode, $editMode)
         .accessibilityIdentifier("dashcam.library.list")
     }
 
@@ -277,10 +277,6 @@ struct RecordingLibraryView: View {
     private var deleteDialogTitle: String {
         "删除 \(deletablePendingSegments.count) 段录像？"
     }
-    private var editModeBinding: Binding<EditMode?> {
-        Binding(get: { editMode }, set: { editMode = $0 ?? .inactive })
-    }
-
     private func beginSelecting(_ segment: RecordingSegment) {
         selectedIDs = [segment.id]
         editMode = .active
