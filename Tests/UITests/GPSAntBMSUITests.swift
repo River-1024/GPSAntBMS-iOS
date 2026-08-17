@@ -66,7 +66,7 @@ final class GPSAntBMSUITests: XCTestCase {
 
         tabBarButton(app, id: "tab.settings", label: "设置").tap()
         let versionHistoryEntry = app.descendants(matching: .any)["settings.version-history"].firstMatch
-        XCTAssertTrue(versionHistoryEntry.waitForExistence(timeout: 5))
+        XCTAssertTrue(scrollToElement(versionHistoryEntry, in: app))
         versionHistoryEntry.tap()
 
         let firstRelease = app.descendants(matching: .any)["version-history.row.0.1.0"].firstMatch
@@ -129,6 +129,19 @@ final class GPSAntBMSUITests: XCTestCase {
         let predicate = NSPredicate(format: "label == %@", expectedLabel)
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    private func scrollToElement(
+        _ element: XCUIElement,
+        in app: XCUIApplication,
+        maxSwipes: Int = 6
+    ) -> Bool {
+        if element.waitForExistence(timeout: 2) { return true }
+        for _ in 0..<maxSwipes {
+            app.swipeUp()
+            if element.waitForExistence(timeout: 1) { return true }
+        }
+        return false
     }
 
     /// 最小化权限弹窗处理：最多两轮（定位/蓝牙各可能弹一次），

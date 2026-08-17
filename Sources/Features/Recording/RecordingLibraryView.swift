@@ -194,6 +194,7 @@ struct RecordingLibraryView: View {
             Text("已选 \(selectedIDs.count) 段")
                 .font(.caption.weight(.medium))
                 .foregroundStyle(Theme.Colors.textSecondary)
+                .accessibilityLabel("已选 \(selectedIDs.count) 段")
                 .accessibilityIdentifier("dashcam.library.selection-count")
             Spacer(minLength: 0)
             Button {
@@ -278,8 +279,10 @@ struct RecordingLibraryView: View {
         "删除 \(deletablePendingSegments.count) 段录像？"
     }
     private func beginSelecting(_ segment: RecordingSegment) {
-        selectedIDs = [segment.id]
         editMode = .active
+        DispatchQueue.main.async {
+            selectedIDs = [segment.id]
+        }
     }
 
     private func finishSelecting() {
