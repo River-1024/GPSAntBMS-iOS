@@ -13,6 +13,8 @@ swift test
 
 涉及设备、定位、后台行为或录像的改动，还应在真机上验证。行车记录测试清单见 `docs/DASHCAM_DEVICE_VERIFICATION.md`。
 
+修改用户可见版本或应用内更新记录时，遵循 [版本管理说明](docs/VERSIONING.md)。
+
 ## 提交要求
 
 - 保持改动聚焦，并为行为变化补充测试。

@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 @main
@@ -36,6 +37,7 @@ struct GPSAntBMSApp: App {
             bluetoothService: bluetoothService,
             tripSession: tripSession)
         let dashcamController = DashcamRecordingController(
+            store: Self.makeDashcamStore(),
             capacityBytes: { [weak tripSession] in
                 (tripSession?.settings.recordingCapacityLimit ?? .defaultValue).byteCount
             },
@@ -76,6 +78,53 @@ struct GPSAntBMSApp: App {
         _dashboardViewModel = StateObject(wrappedValue: DashboardViewModel(
             bluetoothService: bluetoothService,
             locationService: locationService))
+    }
+
+    private static func makeDashcamStore() -> RecordingStore {
+#if DEBUG
+        guard ProcessInfo.processInfo.arguments.contains("-uiTestingSeedRecordings") else {
+            return RecordingStore()
+        }
+
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GPSAntBMS-UI-Recordings", isDirectory: true)
+        do {
+            if FileManager.default.fileExists(atPath: directory.path) {
+                try FileManager.default.removeItem(at: directory)
+            }
+        } catch {
+            assertionFailure("无法清理 UI 测试录像夹具：\(error.localizedDescription)")
+            return RecordingStore()
+        }
+        let store = RecordingStore(directoryURL: directory)
+        let sessionID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        let start = Date(timeIntervalSince1970: 1_784_793_600)
+        let segments = [
+            RecordingSegment(id: UUID(uuidString: "00000000-0000-0000-0000-000000000101")!,
+                             sessionID: sessionID, sequence: 0, startedAt: start,
+                             endedAt: start.addingTimeInterval(10), durationSeconds: 10,
+                             byteCount: 3, fileName: "ui-normal.mov"),
+            RecordingSegment(id: UUID(uuidString: "00000000-0000-0000-0000-000000000102")!,
+                             sessionID: sessionID, sequence: 1, startedAt: start.addingTimeInterval(60),
+                             endedAt: start.addingTimeInterval(70), durationSeconds: 10,
+                             byteCount: 3, fileName: "ui-locked.mov", kind: .locked)
+        ]
+
+        do {
+            for segment in segments {
+                let url = store.finalURL(fileName: segment.fileName)
+                try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
+                                                        withIntermediateDirectories: true)
+                try Data([0, 1, 2]).write(to: url)
+            }
+            try store.save(RecordingManifest(segments: segments))
+        } catch {
+            assertionFailure("无法创建 UI 测试录像夹具：\(error.localizedDescription)")
+        }
+        return store
+#else
+        return RecordingStore()
+#endif
     }
 
     var body: some Scene {

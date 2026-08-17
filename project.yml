@@ -80,6 +80,7 @@ targets:
     resources:
       - path: Resources/Assets.xcassets
       - path: Resources/PrivacyInfo.xcprivacy
+      - path: Resources/VersionHistory.json
 
   # ---------- 单元测试目标 ----------
   GPSAntBMSTests:

@@ -59,6 +59,57 @@ final class GPSAntBMSUITests: XCTestCase {
         XCTAssertTrue(app.buttons["dashcam.open"].waitForExistence(timeout: 5))
     }
 
+    func testSettingsShowsOfflineVersionHistory() throws {
+        let app = XCUIApplication()
+        app.launch()
+        dismissPermissionAlertsIfPresent(in: app)
+
+        tabBarButton(app, id: "tab.settings", label: "设置").tap()
+        let versionHistoryEntry = app.descendants(matching: .any)["settings.version-history"].firstMatch
+        XCTAssertTrue(versionHistoryEntry.waitForExistence(timeout: 5))
+        versionHistoryEntry.tap()
+
+        let firstRelease = app.descendants(matching: .any)["version-history.row.0.1.0"].firstMatch
+        XCTAssertTrue(firstRelease.waitForExistence(timeout: 5))
+        firstRelease.tap()
+        XCTAssertTrue(app.staticTexts["录像库支持长按进入多选管理，以及锁定保护、批量导出和分享。"]
+            .waitForExistence(timeout: 5))
+    }
+
+    func testRecordingLibraryLongPressEntersSelectionAndProtectsLockedSegment() throws {
+        let app = XCUIApplication()
+        app.launchArguments.append("-uiTestingSeedRecordings")
+        app.launch()
+        dismissPermissionAlertsIfPresent(in: app)
+
+        tabBarButton(app, id: "tab.dashcam", label: "录像").tap()
+        app.buttons["dashcam.library"].tap()
+
+        let normalRow = app.descendants(matching: .any)["dashcam.library.row.00000000-0000-0000-0000-000000000101"].firstMatch
+        XCTAssertTrue(normalRow.waitForExistence(timeout: 5))
+        normalRow.press(forDuration: 0.6)
+        XCTAssertTrue(app.buttons["dashcam.library.select-all"].waitForExistence(timeout: 5))
+        let selectionCount = app.descendants(matching: .any)["dashcam.library.selection-count"].firstMatch
+        XCTAssertTrue(waitForLabel("已选 1 段", on: selectionCount))
+
+        let lockedRow = app.descendants(matching: .any)["dashcam.library.row.00000000-0000-0000-0000-000000000102"].firstMatch
+        lockedRow.tap()
+        XCTAssertTrue(waitForLabel("已选 2 段", on: selectionCount))
+
+        app.buttons["dashcam.library.select-all"].tap()
+        XCTAssertTrue(waitForLabel("已选 0 段", on: selectionCount))
+        app.buttons["dashcam.library.select-all"].tap()
+        XCTAssertTrue(waitForLabel("已选 2 段", on: selectionCount))
+        app.buttons["dashcam.library.delete"].tap()
+        XCTAssertTrue(app.buttons["删除 1 段录像"].waitForExistence(timeout: 5))
+        app.buttons["删除 1 段录像"].tap()
+        if app.alerts["行车记录"].waitForExistence(timeout: 2) {
+            app.alerts["行车记录"].buttons["好"].tap()
+        }
+
+        XCTAssertTrue(lockedRow.waitForExistence(timeout: 5))
+    }
+
     // MARK: - 私有辅助
 
     /// 查找 Tab 栏按钮：优先按稳定标识，回退到中文标签（适配两种 SwiftUI 标识传播行为）。
@@ -68,6 +119,16 @@ final class GPSAntBMSUITests: XCTestCase {
             return byID
         }
         return app.tabBars.buttons[label]
+    }
+
+    private func waitForLabel(
+        _ expectedLabel: String,
+        on element: XCUIElement,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        let predicate = NSPredicate(format: "label == %@", expectedLabel)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
     /// 最小化权限弹窗处理：最多两轮（定位/蓝牙各可能弹一次），

@@ -100,6 +100,50 @@ final class RecordingStore {
         try fileManager.removeItem(at: url)
     }
 
+    func stageDeletion(_ segment: RecordingSegment) throws -> URL {
+        try ensureDirectories()
+        let source = finalURL(fileName: segment.fileName)
+        guard fileManager.fileExists(atPath: source.path) else { throw StoreError.segmentMissing }
+        let staged = stagedDeletionURL(for: segment)
+        if fileManager.fileExists(atPath: staged.path) {
+            try fileManager.removeItem(at: staged)
+        }
+        try fileManager.moveItem(at: source, to: staged)
+        return staged
+    }
+
+    func finalizeDeletion(at stagedURL: URL) throws {
+        guard fileManager.fileExists(atPath: stagedURL.path) else { return }
+        try fileManager.removeItem(at: stagedURL)
+    }
+
+    func restoreDeletion(at stagedURL: URL, segment: RecordingSegment) throws {
+        try ensureDirectories()
+        guard fileManager.fileExists(atPath: stagedURL.path) else { throw StoreError.segmentMissing }
+        let destination = finalURL(fileName: segment.fileName)
+        if fileManager.fileExists(atPath: destination.path) {
+            try fileManager.removeItem(at: destination)
+        }
+        try fileManager.moveItem(at: stagedURL, to: destination)
+    }
+
+    func recoverStagedDeletions(manifest: RecordingManifest) throws {
+        try ensureDirectories()
+        for segment in manifest.segments {
+            let stagedURL = stagedDeletionURL(for: segment)
+            if fileManager.fileExists(atPath: stagedURL.path) {
+                try restoreDeletion(at: stagedURL, segment: segment)
+            }
+        }
+
+        for stagedURL in try fileManager.contentsOfDirectory(
+            at: inProgressDirectoryURL,
+            includingPropertiesForKeys: nil
+        ) where stagedURL.lastPathComponent.hasPrefix("deleting-") {
+            try finalizeDeletion(at: stagedURL)
+        }
+    }
+
     func removeStaleTemporaryFiles() throws {
         try ensureDirectories()
         for url in try fileManager.contentsOfDirectory(at: inProgressDirectoryURL,
@@ -122,5 +166,10 @@ final class RecordingStore {
     private func ensureDirectories() throws {
         try fileManager.createDirectory(at: segmentsDirectoryURL, withIntermediateDirectories: true)
         try fileManager.createDirectory(at: inProgressDirectoryURL, withIntermediateDirectories: true)
+    }
+
+    private func stagedDeletionURL(for segment: RecordingSegment) -> URL {
+        inProgressDirectoryURL
+            .appendingPathComponent("deleting-\(segment.id.uuidString)-\(segment.fileName)")
     }
 }

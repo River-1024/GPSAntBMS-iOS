@@ -32,6 +32,7 @@ struct SettingsView: View {
             backgroundSection
             displaySection
             recordingSection
+            versionSection
             thresholdSection
             diagnosticsSection
             if let warning = tripSession.storageWarning {
@@ -219,6 +220,17 @@ struct SettingsView: View {
             } label: {
                 Label("软件日志", systemImage: "doc.text.magnifyingglass")
             }
+        }
+    }
+
+    private var versionSection: some View {
+        Section("关于") {
+            NavigationLink {
+                VersionHistoryView()
+            } label: {
+                Label("版本更新记录", systemImage: "clock.arrow.circlepath")
+            }
+            .accessibilityIdentifier("settings.version-history")
         }
     }
 

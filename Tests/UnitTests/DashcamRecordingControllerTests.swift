@@ -30,6 +30,21 @@ private struct AllowedDashcamPermissions: DashcamPermissionProviding {
     func requestPhotoAddPermission(completion: @escaping (Bool) -> Void) { completion(true) }
 }
 
+private final class MockRecordingExportService: RecordingExporting {
+    private(set) var exportedURLs: [URL] = []
+
+    func exportVideos(at urls: [URL], completion: @escaping (RecordingExportResult) -> Void) {
+        exportedURLs = urls
+        completion(RecordingExportResult(exportedCount: urls.count,
+                                         unreadableCount: 0,
+                                         failedCount: 0))
+    }
+}
+
+private enum ManifestWriteTestError: Error {
+    case failed
+}
+
 @MainActor
 final class DashcamRecordingControllerTests: XCTestCase {
     private var directory: URL!
@@ -141,5 +156,174 @@ final class DashcamRecordingControllerTests: XCTestCase {
         XCTAssertFalse(controller.isRecording)
         XCTAssertEqual(controller.state, .failed(.writerFailed("test")))
         XCTAssertEqual(capture.stopCount, 1)
+    }
+
+    func testLockedSegmentCannotBeDeleted() throws {
+        let locked = try seedSegment(sequence: 0, kind: .locked)
+
+        let result = controller.deleteSegment(locked)
+
+        XCTAssertEqual(result.deletedCount, 0)
+        XCTAssertEqual(result.protectedIDs, [locked.id])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: controller.fileURL(for: locked).path))
+        XCTAssertEqual(controller.segments.map(\.id), [locked.id])
+    }
+
+    func testBatchDeleteRemovesOnlyNormalSegments() throws {
+        let normal = try seedSegment(sequence: 0)
+        let locked = try seedSegment(sequence: 1, kind: .locked)
+
+        let result = controller.deleteSegments(ids: [normal.id, locked.id])
+
+        XCTAssertEqual(result.deletedIDs, [normal.id])
+        XCTAssertEqual(result.protectedIDs, [locked.id])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: controller.fileURL(for: normal).path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: controller.fileURL(for: locked).path))
+        XCTAssertEqual(controller.segments.map(\.id), [locked.id])
+    }
+
+    func testDeleteFailureLeavesSegmentVisibleAndReportedAsFailed() throws {
+        let normal = try seedSegment(sequence: 0)
+        try FileManager.default.removeItem(at: controller.fileURL(for: normal))
+
+        let result = controller.deleteSegment(normal)
+
+        XCTAssertEqual(result.failedIDs, [normal.id])
+        XCTAssertEqual(result.deletedCount, 0)
+        XCTAssertEqual(controller.segments.map(\.id), [normal.id])
+    }
+
+    func testManifestSaveFailureDoesNotReportDeletedSuccess() throws {
+        let normal = try seedSegment(sequence: 0)
+        let store = RecordingStore(directoryURL: directory)
+        controller = DashcamRecordingController(
+            capture: capture,
+            permissions: AllowedDashcamPermissions(),
+            store: store,
+            manifestWriter: { _ in throw ManifestWriteTestError.failed },
+            capacityBytes: { 1_000_000_000 })
+
+        let result = controller.deleteSegment(normal)
+
+        XCTAssertEqual(result.deletedCount, 0)
+        XCTAssertEqual(result.failedIDs, [normal.id])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: controller.fileURL(for: normal).path))
+        XCTAssertEqual(controller.segments.map(\.id), [normal.id])
+        XCTAssertEqual(store.load().manifest.segments.map(\.id), [normal.id])
+        XCTAssertEqual(controller.alertText, "录像清单保存失败，删除操作已撤销")
+    }
+
+    func testLaunchRestoresStagedDeletionWhenManifestStillContainsSegment() throws {
+        let normal = try seedSegment(sequence: 0)
+        let store = RecordingStore(directoryURL: directory)
+        let stagedURL = try store.stageDeletion(normal)
+
+        controller = DashcamRecordingController(
+            capture: capture,
+            permissions: AllowedDashcamPermissions(),
+            store: store,
+            capacityBytes: { 1_000_000_000 })
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stagedURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: controller.fileURL(for: normal).path))
+        XCTAssertEqual(controller.segments.map(\.id), [normal.id])
+    }
+
+    func testLaunchFinalizesStagedDeletionWhenManifestNoLongerContainsSegment() throws {
+        let normal = try seedSegment(sequence: 0)
+        let store = RecordingStore(directoryURL: directory)
+        let stagedURL = try store.stageDeletion(normal)
+        try store.save(.empty)
+
+        controller = DashcamRecordingController(
+            capture: capture,
+            permissions: AllowedDashcamPermissions(),
+            store: store,
+            capacityBytes: { 1_000_000_000 })
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stagedURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: controller.fileURL(for: normal).path))
+        XCTAssertTrue(controller.segments.isEmpty)
+    }
+
+    func testManualLockAndUnlockPersistToManifest() throws {
+        let normal = try seedSegment(sequence: 0)
+
+        XCTAssertEqual(controller.lockSegments(ids: [normal.id]).changedIDs, [normal.id])
+        XCTAssertEqual(controller.segments.first?.kind, .locked)
+
+        XCTAssertEqual(controller.unlockSegments(ids: [normal.id]).changedIDs, [normal.id])
+        XCTAssertEqual(controller.segments.first?.kind, .normal)
+        XCTAssertEqual(RecordingStore(directoryURL: directory).load().manifest.segments.first?.kind, .normal)
+    }
+
+    func testLockStateRollsBackWhenManifestSaveFails() throws {
+        let normal = try seedSegment(sequence: 0)
+        let store = RecordingStore(directoryURL: directory)
+        controller = DashcamRecordingController(
+            capture: capture,
+            permissions: AllowedDashcamPermissions(),
+            store: store,
+            manifestWriter: { _ in throw ManifestWriteTestError.failed },
+            capacityBytes: { 1_000_000_000 })
+
+        let result = controller.lockSegments(ids: [normal.id])
+
+        XCTAssertEqual(result.changedCount, 0)
+        XCTAssertEqual(result.failedIDs, [normal.id])
+        XCTAssertEqual(controller.segments.first?.kind, .normal)
+        XCTAssertEqual(store.load().manifest.segments.first?.kind, .normal)
+    }
+
+    func testBatchPhotoExportKeepsSourceFiles() async throws {
+        let normal = try seedSegment(sequence: 0)
+        let locked = try seedSegment(sequence: 1, kind: .locked)
+        let exportService = MockRecordingExportService()
+        controller = DashcamRecordingController(
+            capture: capture,
+            permissions: AllowedDashcamPermissions(),
+            store: RecordingStore(directoryURL: directory),
+            exportService: exportService,
+            capacityBytes: { 1_000_000_000 })
+
+        controller.exportToPhotos([normal, locked])
+        for _ in 0..<100 where exportService.exportedURLs.count != 2 {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+
+        XCTAssertEqual(exportService.exportedURLs.count, 2)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: controller.fileURL(for: normal).path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: controller.fileURL(for: locked).path))
+    }
+
+    @discardableResult
+    private func seedSegment(
+        sequence: Int,
+        kind: RecordingSegmentKind = .normal
+    ) throws -> RecordingSegment {
+        let startedAt = Date(timeIntervalSinceReferenceDate: TimeInterval(sequence))
+        let segment = RecordingSegment(
+            sessionID: UUID(),
+            sequence: sequence,
+            startedAt: startedAt,
+            endedAt: startedAt.addingTimeInterval(10),
+            durationSeconds: 10,
+            byteCount: 3,
+            fileName: "seed-\(sequence).mov",
+            kind: kind
+        )
+        let store = RecordingStore(directoryURL: directory)
+        let url = store.finalURL(fileName: segment.fileName)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data([0, 1, 2]).write(to: url)
+        var manifest = store.load().manifest
+        manifest.segments.append(segment)
+        try store.save(manifest)
+        controller = DashcamRecordingController(
+            capture: capture,
+            permissions: AllowedDashcamPermissions(),
+            store: store,
+            capacityBytes: { 1_000_000_000 })
+        return segment
     }
 }
