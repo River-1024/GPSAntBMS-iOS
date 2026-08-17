@@ -112,7 +112,7 @@ final class ApplicationAudioSessionCoordinator: ApplicationAudioSessionCoordinat
                 category,
                 mode: mode,
                 options: options)
-            try audioSession.setActive(true)
+            try audioSession.setActive(true, options: [])
             owner = newOwner
         } catch {
             owner = nil
