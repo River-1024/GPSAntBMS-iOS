@@ -41,6 +41,12 @@ targets:
       - path: Sources/Services
       - path: Sources/Features
       - path: Sources/DesignSystem
+      - path: Resources/Assets.xcassets
+        buildPhase: resources
+      - path: Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
+      - path: Resources/VersionHistory.json
+        buildPhase: resources
     info:
       path: Resources/Info.plist
       properties:
@@ -77,11 +83,6 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO
         GENERATE_INFOPLIST_FILE: NO
-    resources:
-      - path: Resources/Assets.xcassets
-      - path: Resources/PrivacyInfo.xcprivacy
-      - path: Resources/VersionHistory.json
-
   # ---------- 单元测试目标 ----------
   GPSAntBMSTests:
     type: bundle.unit-test
