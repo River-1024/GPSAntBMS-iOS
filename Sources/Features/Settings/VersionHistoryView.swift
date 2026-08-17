@@ -1,12 +1,16 @@
 import SwiftUI
 
 struct VersionHistoryView: View {
-    @State private var result: Result<AppVersionHistory, Error>?
+    private let result: Result<AppVersionHistory, Error>
+
+    init() {
+        result = AppVersionHistoryLoader.load()
+    }
 
     var body: some View {
         Group {
             switch result {
-            case .some(.success(let history)):
+            case .success(let history):
                 List(history.releases) { release in
                     DisclosureGroup {
                         ForEach(release.changes, id: \.self) { change in
@@ -24,8 +28,11 @@ struct VersionHistoryView: View {
                         }
                         .accessibilityIdentifier("version-history.row.\(release.version)")
                     }
+                    .accessibilityLabel(
+                        "版本 \(release.version)，构建 \(release.build)，发布日期 \(release.releaseDate)"
+                    )
                 }
-            case .some(.failure):
+            case .failure:
                 VStack(spacing: Theme.Spacing.medium) {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.largeTitle)
@@ -39,17 +46,10 @@ struct VersionHistoryView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding()
                 .accessibilityIdentifier("version-history.error")
-            case nil:
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .navigationTitle("版本更新记录")
         .navigationBarTitleDisplayMode(.inline)
         .appPageBackground()
-        .task {
-            guard case nil = result else { return }
-            result = AppVersionHistoryLoader.load()
-        }
     }
 }
