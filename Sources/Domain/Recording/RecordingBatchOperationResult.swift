@@ -27,7 +27,7 @@ struct RecordingSelectionState: Equatable {
     }
 
     mutating func toggle(_ id: UUID) {
-        if !selectedIDs.remove(id).isEmpty { return }
+        if selectedIDs.remove(id) != nil { return }
         selectedIDs.insert(id)
     }
 
