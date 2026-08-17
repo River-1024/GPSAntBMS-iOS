@@ -25,7 +25,6 @@ struct VersionHistoryView: View {
                         .accessibilityIdentifier("version-history.row.\(release.version)")
                     }
                 }
-                .accessibilityIdentifier("version-history.list")
             case .some(.failure):
                 VStack(spacing: Theme.Spacing.medium) {
                     Image(systemName: "exclamationmark.triangle")
