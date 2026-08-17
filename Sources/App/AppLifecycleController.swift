@@ -17,7 +17,7 @@ protocol ForegroundSessionService: AnyObject {
 ///
 /// 设计：
 /// - `.active`：启动/恢复前台服务（定位 + BLE 扫描/轮询/重连 + 行程时钟），幂等；
-/// - `.inactive`：仅停止摄像头录制，保留数据服务，避免短暂系统转换触发断连；
+/// - `.inactive`：保留摄像头录制与数据服务，允许控制中心等短暂系统转换；
 /// - `.background`：后台行程开关打开时保留数据服务，否则停止并保存历史；
 /// - 视图层（`onAppear`/`onDisappear`）不拥有服务生命周期，避免多重所有权。
 final class AppLifecycleController: ObservableObject {
@@ -73,7 +73,6 @@ final class AppLifecycleController: ObservableObject {
             startForegroundSession()
         case .inactive:
             isForegroundActive = false
-            stopDashcamIfNeeded()
         case .background:
             isForegroundActive = false
             stopDashcamIfNeeded()

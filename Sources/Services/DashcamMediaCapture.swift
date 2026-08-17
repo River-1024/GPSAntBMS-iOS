@@ -14,11 +14,6 @@ enum DashcamAudioSessionPolicy {
     static let category: AVAudioSession.Category = .playAndRecord
     static let mode: AVAudioSession.Mode = .videoRecording
     static let options: AVAudioSession.CategoryOptions = [.mixWithOthers]
-
-    static func activate(_ session: AVAudioSession) throws {
-        try session.setCategory(category, mode: mode, options: options)
-        try session.setActive(true)
-    }
 }
 
 enum DashcamVideoOrientation: Equatable {
@@ -87,9 +82,12 @@ final class DashcamMediaCapture: NSObject, DashcamCaptureBackend {
     private var configured = false
     private let segmentDuration = CMTime(seconds: 180, preferredTimescale: 600)
     private var observers: [NSObjectProtocol] = []
+    private let audioSessionCoordinator: ApplicationAudioSessionCoordinating
 
-    override init() {
+    init(audioSessionCoordinator: ApplicationAudioSessionCoordinating = ApplicationAudioSessionCoordinator()) {
+        self.audioSessionCoordinator = audioSessionCoordinator
         super.init()
+        audioSessionCoordinator.configureCaptureSession(captureSession)
         videoOutput.setSampleBufferDelegate(self, queue: writerQueue)
         audioOutput.setSampleBufferDelegate(self, queue: writerQueue)
         UIDevice.current.beginGeneratingDeviceOrientationNotifications()
@@ -105,7 +103,12 @@ final class DashcamMediaCapture: NSObject, DashcamCaptureBackend {
         sessionQueue.async { [weak self] in
             guard let self else { return }
             if self.configured {
-                try? DashcamAudioSessionPolicy.activate(AVAudioSession.sharedInstance())
+                do {
+                    try self.audioSessionCoordinator.activateDashcam()
+                } catch {
+                    DispatchQueue.main.async { completion(.failure(.microphoneUnavailable)) }
+                    return
+                }
                 if !self.captureSession.isRunning { self.captureSession.startRunning() }
                 DispatchQueue.main.async { completion(.success(())) }
                 return
@@ -152,9 +155,9 @@ final class DashcamMediaCapture: NSObject, DashcamCaptureBackend {
 
     func stopSession() {
         sessionQueue.async { [weak self] in
-            guard let self, self.captureSession.isRunning else { return }
-            self.captureSession.stopRunning()
-            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            guard let self else { return }
+            if self.captureSession.isRunning { self.captureSession.stopRunning() }
+            self.audioSessionCoordinator.deactivateDashcam()
         }
     }
 
@@ -163,8 +166,7 @@ final class DashcamMediaCapture: NSObject, DashcamCaptureBackend {
         defer { captureSession.commitConfiguration() }
         captureSession.sessionPreset = .hd1920x1080
 
-        let audioSession = AVAudioSession.sharedInstance()
-        try DashcamAudioSessionPolicy.activate(audioSession)
+        try audioSessionCoordinator.activateDashcam()
 
         guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
         else { throw RecordingFailure.cameraUnavailable }

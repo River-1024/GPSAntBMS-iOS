@@ -8,9 +8,14 @@ import Foundation
 final class BackgroundKeepAliveService {
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
+    private let audioSessionCoordinator: ApplicationAudioSessionCoordinating
     private var isConfigured = false
     private var isRunning = false
     private var wantsToRun = false
+
+    init(audioSessionCoordinator: ApplicationAudioSessionCoordinating = ApplicationAudioSessionCoordinator()) {
+        self.audioSessionCoordinator = audioSessionCoordinator
+    }
 
     func start() {
         wantsToRun = true
@@ -22,19 +27,18 @@ final class BackgroundKeepAliveService {
 
     func stop() {
         wantsToRun = false
-        guard isRunning || engine.isRunning else { return }
-        player.stop()
-        engine.stop()
+        if isRunning || engine.isRunning {
+            player.stop()
+            engine.stop()
+        }
         isRunning = false
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        audioSessionCoordinator.deactivateBackgroundKeepAlive()
     }
 
     private func startWhenCaptureSessionHasReleasedAudio() {
         guard wantsToRun, !isRunning else { return }
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
-            try session.setActive(true)
+            try audioSessionCoordinator.activateBackgroundKeepAlive()
             configureEngineIfNeeded()
             try engine.start()
             player.play()
