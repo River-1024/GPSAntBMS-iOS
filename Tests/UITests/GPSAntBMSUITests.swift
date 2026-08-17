@@ -69,7 +69,9 @@ final class GPSAntBMSUITests: XCTestCase {
         XCTAssertTrue(scrollToElement(versionHistoryEntry, in: app))
         versionHistoryEntry.tap()
 
-        let firstRelease = app.descendants(matching: .any)["version-history.row.0.1.0"].firstMatch
+        let firstReleaseID = app.descendants(matching: .any)["version-history.row.0.1.0"].firstMatch
+        XCTAssertTrue(firstReleaseID.waitForExistence(timeout: 5))
+        let firstRelease = app.staticTexts["版本 0.1.0"]
         XCTAssertTrue(firstRelease.waitForExistence(timeout: 5))
         firstRelease.tap()
         XCTAssertTrue(app.staticTexts["录像库支持长按进入多选管理，以及锁定保护、批量导出和分享。"]
@@ -90,16 +92,17 @@ final class GPSAntBMSUITests: XCTestCase {
         normalRow.press(forDuration: 0.6)
         XCTAssertTrue(app.buttons["dashcam.library.select-all"].waitForExistence(timeout: 5))
         let selectionCount = app.descendants(matching: .any)["dashcam.library.selection-count"].firstMatch
-        XCTAssertTrue(waitForLabel("已选 1 段", on: selectionCount))
+        XCTAssertTrue(selectionCount.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["已选 1 段"].waitForExistence(timeout: 5))
 
         let lockedRow = app.descendants(matching: .any)["dashcam.library.row.00000000-0000-0000-0000-000000000102"].firstMatch
         lockedRow.tap()
-        XCTAssertTrue(waitForLabel("已选 2 段", on: selectionCount))
+        XCTAssertTrue(app.staticTexts["已选 2 段"].waitForExistence(timeout: 5))
 
         app.buttons["dashcam.library.select-all"].tap()
-        XCTAssertTrue(waitForLabel("已选 0 段", on: selectionCount))
+        XCTAssertTrue(app.staticTexts["已选 0 段"].waitForExistence(timeout: 5))
         app.buttons["dashcam.library.select-all"].tap()
-        XCTAssertTrue(waitForLabel("已选 2 段", on: selectionCount))
+        XCTAssertTrue(app.staticTexts["已选 2 段"].waitForExistence(timeout: 5))
         app.buttons["dashcam.library.delete"].tap()
         XCTAssertTrue(app.buttons["删除 1 段录像"].waitForExistence(timeout: 5))
         app.buttons["删除 1 段录像"].tap()
@@ -119,16 +122,6 @@ final class GPSAntBMSUITests: XCTestCase {
             return byID
         }
         return app.tabBars.buttons[label]
-    }
-
-    private func waitForLabel(
-        _ expectedLabel: String,
-        on element: XCUIElement,
-        timeout: TimeInterval = 5
-    ) -> Bool {
-        let predicate = NSPredicate(format: "label == %@", expectedLabel)
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
-        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
     private func scrollToElement(

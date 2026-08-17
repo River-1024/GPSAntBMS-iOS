@@ -22,8 +22,8 @@ struct VersionHistoryView: View {
                                 .font(.caption)
                                 .foregroundStyle(Theme.Colors.textSecondary)
                         }
+                        .accessibilityIdentifier("version-history.row.\(release.version)")
                     }
-                    .accessibilityIdentifier("version-history.row.\(release.version)")
                 }
                 .accessibilityIdentifier("version-history.list")
             case .some(.failure):
