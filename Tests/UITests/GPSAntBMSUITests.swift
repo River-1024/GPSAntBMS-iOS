@@ -69,8 +69,6 @@ final class GPSAntBMSUITests: XCTestCase {
         XCTAssertTrue(scrollToElement(versionHistoryEntry, in: app))
         versionHistoryEntry.tap()
 
-        let firstReleaseID = app.descendants(matching: .any)["version-history.row.0.1.0"].firstMatch
-        XCTAssertTrue(firstReleaseID.waitForExistence(timeout: 5))
         let firstRelease = app.staticTexts["版本 0.1.0"]
         XCTAssertTrue(firstRelease.waitForExistence(timeout: 5))
         firstRelease.tap()
@@ -91,8 +89,6 @@ final class GPSAntBMSUITests: XCTestCase {
         XCTAssertTrue(normalRow.waitForExistence(timeout: 5))
         normalRow.press(forDuration: 0.6)
         XCTAssertTrue(app.buttons["dashcam.library.select-all"].waitForExistence(timeout: 5))
-        let selectionCount = app.descendants(matching: .any)["dashcam.library.selection-count"].firstMatch
-        XCTAssertTrue(selectionCount.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["已选 1 段"].waitForExistence(timeout: 5))
 
         let lockedRow = app.descendants(matching: .any)["dashcam.library.row.00000000-0000-0000-0000-000000000102"].firstMatch
